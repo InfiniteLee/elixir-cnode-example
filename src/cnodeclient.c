@@ -5,6 +5,8 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <limits.h>
+#include <string.h>
 
 #include "erl_interface.h"
 #include "ei.h"
@@ -14,52 +16,37 @@
 int main(int argc, char **argv) {
   int fd;                                  /* fd to Erlang node */
 
-  int loop = 1;                            /* Loop flag */
-  int got;                                 /* Result of receive */
-  unsigned char buf[BUFSIZE];              /* Buffer for incoming message */
-  ErlMessage emsg;                         /* Incoming message */
-
-  ETERM *fromp, *tuplep, *fnp, *argp, *resp;
-  int res;
-  
   erl_init(NULL, 0);
 
   if (erl_connect_init(1, "secretcookie", 0) == -1)
     erl_err_quit("erl_connect_init");
 
-  if ((fd = erl_connect("e1@TODO_DETERMINE_HOSTNAME_HERE")) < 0)
-    erl_err_quit("erl_connect");
-  fprintf(stderr, "Connected to ei@idril\n\r");
+  char hostname[HOST_NAME_MAX];
+  gethostname(hostname, HOST_NAME_MAX);
 
-  while (loop) {
+  char node[] = "e1@";
+  strcat(node, hostname);
 
-    got = erl_receive_msg(fd, buf, BUFSIZE, &emsg);
-    if (got == ERL_TICK) {
-      /* ignore */
-    } else if (got == ERL_ERROR) {
-      loop = 0;
-    } else {
+  if ((fd = erl_connect(node)) < 0)
+    erl_err_quit("erl_connect failed");
+  fprintf(stderr, "Connected to %s\n\r", node);
 
-      if (emsg.type == ERL_REG_SEND) {
-	fromp = erl_element(2, emsg.msg);
-	tuplep = erl_element(3, emsg.msg);
-	fnp = erl_element(1, tuplep);
-	argp = erl_element(2, tuplep);
+  // http://erlang.org/doc/man/erl_connect.html#erl_reg_send
+  ETERM *msg = erl_format("{cnode, ~s}", "hello");
+  int resp = erl_reg_send(fd, "complex", msg);
 
-	if (strncmp(ERL_ATOM_PTR(fnp), "foo", 3) == 0) {
-	  res = foo(ERL_INT_VALUE(argp));
-	} else if (strncmp(ERL_ATOM_PTR(fnp), "bar", 3) == 0) {
-	  res = bar(ERL_INT_VALUE(argp));
-	}
+  fprintf(stderr, "sync response: %i\n\r", resp);
 
-	resp = erl_format("{cnode, ~i}", res);
-	erl_send(fd, fromp, resp);
+  // http://erlang.org/doc/man/erl_connect.html#erl_rpc
+  ETERM *terms = {erl_mk_int(3)};
+  ETERM *list = erl_mk_list(&terms, 1);
 
-	erl_free_term(emsg.from); erl_free_term(emsg.msg);
-	erl_free_term(fromp); erl_free_term(tuplep);
-	erl_free_term(fnp); erl_free_term(argp);
-	erl_free_term(resp);
-      }
-    }
-  }
+  ETERM *syncresp = erl_rpc(fd, "Elixir.Complex", "double", list);
+
+  fprintf(stderr, "async response: %i\n\r", ERL_INT_VALUE(syncresp));
+  
+  erl_free_term(msg);
+  erl_free_term(terms);
+  erl_free_term(list);
+  erl_free_term(syncresp);
 }

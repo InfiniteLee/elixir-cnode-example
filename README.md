@@ -1,11 +1,9 @@
 elixir-cnode-example
 ====================
 
-Buildable source, copied directly from
-http://www.erlang.org/doc/tutorial/cnode.html
-.
+An example of how to send and receive messages between elixir and cnodes.
 
-Based on https://github.com/arnehilmann/erlang-cnode-example
+Based on https://github.com/remiq/elixir-cnode-example
 
 ## Usage
 
@@ -13,18 +11,21 @@ Build
 
     $ make
 
-Start CNode as server
-
-    $ make start_server
-
-In another terminal, start iex
+First, start iex (starts epmd)
 
     $ make start_elixir
 
-Send request with Erlang module (src/complex3.erl)
+In another terminal, start the cnode server
 
-    iex> :complex3.foo(4)
+    $ make start_server
 
 Send request with Elixir module (src/complex.ex)
 
     iex> Complex.foo 4
+
+Also, send messages to Elixir node
+
+    iex> Complex.register
+
+    $ make start_client
+

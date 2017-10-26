@@ -22,7 +22,7 @@ int main(int argc, char **argv) {
   ErlMessage emsg;                         /* Incoming message */
 
   ETERM *fromp, *tuplep, *fnp, *argp, *resp;
-  int res;
+  int res, value;
 
   port = atoi(argv[1]);
 
@@ -57,14 +57,24 @@ int main(int argc, char **argv) {
         fnp = erl_element(1, tuplep);
         argp = erl_element(2, tuplep);
 
-        if (strncmp(ERL_ATOM_PTR(fnp), "foo", 3) == 0) {
-          res = foo(ERL_INT_VALUE(argp));
-        } else if (strncmp(ERL_ATOM_PTR(fnp), "bar", 3) == 0) {
-          res = bar(ERL_INT_VALUE(argp));
-        }
+        fprintf(stderr, "Got command %s\n\r", ERL_ATOM_PTR(fnp));
 
-        resp = erl_format("{cnode, ~i}", res);
-        erl_send(fd, fromp, resp);
+        value = ERL_INT_VALUE(argp);
+
+        for (int i = 0; i < 10; i++) {
+          if (strncmp(ERL_ATOM_PTR(fnp), "foo", 3) == 0) {
+            res = foo(value);
+          } else if (strncmp(ERL_ATOM_PTR(fnp), "bar", 3) == 0) {
+            res = bar(value);
+          }
+
+          resp = erl_format("{cnode, ~i}", res);
+
+          erl_send(fd, fromp, resp);
+          sleep(1);
+
+          value = res;
+        }
 
         erl_free_term(emsg.from); erl_free_term(emsg.msg);
         erl_free_term(fromp); erl_free_term(tuplep);
